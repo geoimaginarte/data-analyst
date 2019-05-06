@@ -21320,20 +21320,17 @@ En cuanto al mayor número de casas dañadas según año se tiene que el 2008 fu
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[141]:</div>
+<div class="prompt input_prompt">In&nbsp;[149]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">pdy</span> <span class="o">=</span> <span class="n">cym</span><span class="o">.</span><span class="n">DIFFYEAR_AV</span>
-<span class="n">pdt</span> <span class="o">=</span> <span class="n">cym</span><span class="o">.</span><span class="n">N_EQ</span>
-
-<span class="k">def</span> <span class="nf">QEq_y</span> <span class="p">(</span><span class="n">pdy</span><span class="p">,</span> <span class="n">pdt</span><span class="p">):</span>
-    <span class="k">if</span> <span class="n">pdy</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">pdt</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">QEq_y</span> <span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">x2</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">x1</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">x2</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;Frecuencia Muy Baja en ocurrencia de terremotos: ha ocurrido un unico terremoto&quot;</span>        
-    <span class="k">elif</span> <span class="n">pdy</span> <span class="o">&gt;</span> <span class="mi">5</span> <span class="ow">and</span> <span class="n">pdy</span> <span class="o">&lt;=</span> <span class="mi">10</span><span class="p">:</span>
+    <span class="k">elif</span> <span class="n">x1</span> <span class="o">&gt;</span> <span class="mi">5</span> <span class="ow">and</span> <span class="n">x1</span> <span class="o">&lt;=</span> <span class="mi">10</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;Frecuencia Alta en ocurrencia de terremotos: entre 6 y 10 años&quot;</span>
-    <span class="k">elif</span> <span class="n">pdy</span> <span class="o">&gt;</span> <span class="mi">10</span> <span class="ow">and</span> <span class="n">pdy</span> <span class="o">&lt;=</span> <span class="mi">20</span><span class="p">:</span>
+    <span class="k">elif</span> <span class="n">x1</span> <span class="o">&gt;</span> <span class="mi">10</span> <span class="ow">and</span> <span class="n">x1</span> <span class="o">&lt;=</span> <span class="mi">20</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;Frecuencia Media en ocurrencia de terremotos: entre 11 y 20 años&quot;</span>
-    <span class="k">elif</span> <span class="n">pdy</span> <span class="o">&gt;</span> <span class="mi">20</span><span class="p">:</span>
+    <span class="k">elif</span> <span class="n">x1</span> <span class="o">&gt;</span> <span class="mi">20</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;Frecuencia Baja en ocurrencia de terremotos: entre 21 años a más&quot;</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;Frecuencia Muy Alta en ocurrencia de terremotos: entre 0 y 5 años&quot;</span>
@@ -21364,7 +21361,7 @@ En cuanto al mayor número de casas dañadas según año se tiene que el 2008 fu
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[142]:</div>
+<div class="prompt input_prompt">In&nbsp;[150]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">F_M_Alta</span> <span class="o">=</span> <span class="n">cym</span><span class="p">[</span><span class="n">cym</span><span class="o">.</span><span class="n">FREQ_EQ</span> <span class="o">==</span> <span class="s1">&#39;Frecuencia Muy Alta en ocurrencia de terremotos: entre 0 y 5 años&#39;</span><span class="p">]</span>
@@ -21393,7 +21390,7 @@ En cuanto al mayor número de casas dañadas según año se tiene que el 2008 fu
 
 <div class="output_area">
 
-    <div class="prompt output_prompt">Out[142]:</div>
+    <div class="prompt output_prompt">Out[150]:</div>
 
 
 
@@ -21479,7 +21476,7 @@ Name: DIFFYEAR_AV, dtype: int64</pre>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[143]:</div>
+<div class="prompt input_prompt">In&nbsp;[151]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">F_Alta</span> <span class="o">=</span> <span class="n">cym</span><span class="p">[</span><span class="n">cym</span><span class="o">.</span><span class="n">FREQ_EQ</span> <span class="o">==</span> <span class="s1">&#39;Frecuencia Alta en ocurrencia de terremotos: entre 6 y 10 años&#39;</span><span class="p">]</span>
@@ -21508,7 +21505,7 @@ Name: DIFFYEAR_AV, dtype: int64</pre>
 
 <div class="output_area">
 
-    <div class="prompt output_prompt">Out[143]:</div>
+    <div class="prompt output_prompt">Out[151]:</div>
 
 
 
