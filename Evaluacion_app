@@ -1,0 +1,1476 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "kernelspec": {
+      "display_name": "Python 3",
+      "language": "python",
+      "name": "python3"
+    },
+    "language_info": {
+      "codemirror_mode": {
+        "name": "ipython",
+        "version": 3
+      },
+      "file_extension": ".py",
+      "mimetype": "text/x-python",
+      "name": "python",
+      "nbconvert_exporter": "python",
+      "pygments_lexer": "ipython3",
+      "version": "3.6.8"
+    },
+    "colab": {
+      "name": "tarea_4.ipynb",
+      "provenance": [],
+      "collapsed_sections": [],
+      "include_colab_link": true
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/geoimaginarte/data-analyst/blob/proyectodeinvestigacion/Evaluacion_app\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "MqvfAVNYmPzK"
+      },
+      "source": [
+        "# Prueba de la app Plantnet en la identificacion de especies"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "fpUcipuqmPzY"
+      },
+      "source": [
+        "Creado por: Jose Francisco Núñez Obando y Maria Laura Pizarro<br>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "G6wIu_65mPzZ"
+      },
+      "source": [
+        "El siguiente documento corresponde con una evaluación del porcentaje de precisión en la identificación de especies de plantas mediante el uso de la aplicación Plantnet.<br>\n",
+        "<br>\n",
+        "Para cumplir con este objetivo se descargan una serie de fotografia desde los sitios GBIF y EOL usando sus api's respectivas, las cuales posteriormente se utilizan como objetos de prueba para la identificacion de especies en la aplicacion de PlantNet que se encuentra en linea, siendo esta la misma que se encuentra en formato de app para android y ios. Al respecto de la puesta a prueba de dicho servicio de identificacion, se planteo el uso de la técnica de webscrapping utilizando para ello el webdriver de 'chrome' y la librería de Python llamada Selenium, además de otras librerías que complementan el análisis.<br>\n",
+        "<br>En los siguientes apartados se describen los procedimientos y se anotan las partes de codigo utilizadas para llavar a cabo cada proceso.\n",
+        "<br><br>\n",
+        "A continuación, algunas de las librerias python utilizadas inicialmente para completar con los primeros procedimientos:"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "8lPf-VVYmPzd"
+      },
+      "source": [
+        "import requests\n",
+        "import urllib.request\n",
+        "from lxml import html, etree\n",
+        "import json\n",
+        "from pandas.io.json import json_normalize\n",
+        "#import squarify\n",
+        "import warnings\n",
+        "warnings.filterwarnings('ignore')\n",
+        "import time\n",
+        "import pandas as pd\n",
+        "import numpy as np\n",
+        "import glob\n",
+        "import os\n",
+        "import matplotlib.pyplot as plt\n",
+        "import matplotlib.image as mpimg\n",
+        "from bs4 import BeautifulSoup\n",
+        "from fuzzywuzzy import fuzz"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "IavTiZIKmPzf"
+      },
+      "source": [
+        "## Descarga de datos usando la API de GBIF"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "bRy0WSe-LsWX"
+      },
+      "source": [
+        "En esta sección se procede a realizar la consulta a la API de GBIF en la que únicamente se establecen como parámetros el pais y el reino."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "KKuV0D-5mPzg"
+      },
+      "source": [
+        "parameters = {\"country\": \"CR\",\n",
+        "              \"limit\":300,\n",
+        "              \"scientificname\" : \"Plantae\"\n",
+        "              }\n",
+        "url = \"https://api.gbif.org/v1/occurrence/search?\"\n",
+        "\n",
+        "q_gbif = requests.request(method=\"get\", url=url, params=parameters)\n",
+        "j_gbif = json.loads(q_gbif.text)\n",
+        "L = json_normalize(j_gbif['results'])\n",
+        "L = L[['kingdom', 'phylum','order', 'family', 'genus', 'species', 'scientificName']]"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "zgNpdQY-Mg2b"
+      },
+      "source": [
+        "Una vez se obtienen los resultados de la consulta, se procedio a realizar una selección de 20 muestras aleatorias del total."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 662
+        },
+        "id": "jPt2u2JTIZIe",
+        "outputId": "f2461504-a43b-4179-8fdf-8e9176015db3"
+      },
+      "source": [
+        "L2 = L.sample(n=20, random_state=1)\n",
+        "L2"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>kingdom</th>\n",
+              "      <th>phylum</th>\n",
+              "      <th>order</th>\n",
+              "      <th>family</th>\n",
+              "      <th>genus</th>\n",
+              "      <th>species</th>\n",
+              "      <th>scientificName</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>189</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Fabales</td>\n",
+              "      <td>Fabaceae</td>\n",
+              "      <td>Senna</td>\n",
+              "      <td>Senna alata</td>\n",
+              "      <td>Senna alata (L.) Roxb.</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>123</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Cucurbitales</td>\n",
+              "      <td>Cucurbitaceae</td>\n",
+              "      <td>Momordica</td>\n",
+              "      <td>Momordica charantia</td>\n",
+              "      <td>Momordica charantia L.</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>185</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Arecales</td>\n",
+              "      <td>Arecaceae</td>\n",
+              "      <td>Cocos</td>\n",
+              "      <td>Cocos nucifera</td>\n",
+              "      <td>Cocos nucifera L.</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>213</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Asterales</td>\n",
+              "      <td>Asteraceae</td>\n",
+              "      <td>Sphagneticola</td>\n",
+              "      <td>Sphagneticola trilobata</td>\n",
+              "      <td>Sphagneticola trilobata (L.) Pruski</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>106</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Zingiberales</td>\n",
+              "      <td>Heliconiaceae</td>\n",
+              "      <td>Heliconia</td>\n",
+              "      <td>Heliconia latispatha</td>\n",
+              "      <td>Heliconia latispatha Benth.</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>127</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Lamiales</td>\n",
+              "      <td>Acanthaceae</td>\n",
+              "      <td>Aphelandra</td>\n",
+              "      <td>Aphelandra scabra</td>\n",
+              "      <td>Aphelandra scabra (Vahl) Sm.</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>176</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Piperales</td>\n",
+              "      <td>Piperaceae</td>\n",
+              "      <td>Peperomia</td>\n",
+              "      <td>Peperomia pittieri</td>\n",
+              "      <td>Peperomia pittieri C.DC. ex T.Durand &amp; Pittier</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>73</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Malpighiales</td>\n",
+              "      <td>Hypericaceae</td>\n",
+              "      <td>Vismia</td>\n",
+              "      <td>Vismia macrophylla</td>\n",
+              "      <td>Vismia macrophylla Kunth</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>275</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Ericales</td>\n",
+              "      <td>Primulaceae</td>\n",
+              "      <td>Clavija</td>\n",
+              "      <td>Clavija biborrana</td>\n",
+              "      <td>Clavija biborrana Oerst.</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>242</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Gentianales</td>\n",
+              "      <td>Rubiaceae</td>\n",
+              "      <td>Hamelia</td>\n",
+              "      <td>Hamelia patens</td>\n",
+              "      <td>Hamelia patens Jacq.</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>266</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Solanales</td>\n",
+              "      <td>Convolvulaceae</td>\n",
+              "      <td>Ipomoea</td>\n",
+              "      <td>Ipomoea cairica</td>\n",
+              "      <td>Ipomoea cairica (L.) Sweet</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>147</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Zingiberales</td>\n",
+              "      <td>Heliconiaceae</td>\n",
+              "      <td>Heliconia</td>\n",
+              "      <td>Heliconia psittacorum</td>\n",
+              "      <td>Heliconia psittacorum L.f.</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>299</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Fabales</td>\n",
+              "      <td>Fabaceae</td>\n",
+              "      <td>Caesalpinia</td>\n",
+              "      <td>Caesalpinia pulcherrima</td>\n",
+              "      <td>Caesalpinia pulcherrima (L.) Sw.</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>58</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Lamiales</td>\n",
+              "      <td>Acanthaceae</td>\n",
+              "      <td>Asystasia</td>\n",
+              "      <td>Asystasia gangetica</td>\n",
+              "      <td>Asystasia gangetica subsp. gangetica</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>122</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Commelinales</td>\n",
+              "      <td>Haemodoraceae</td>\n",
+              "      <td>Xiphidium</td>\n",
+              "      <td>Xiphidium caeruleum</td>\n",
+              "      <td>Xiphidium caeruleum Aubl.</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>78</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Zingiberales</td>\n",
+              "      <td>Musaceae</td>\n",
+              "      <td>Musa</td>\n",
+              "      <td>Musa paradisiaca</td>\n",
+              "      <td>Musa paradisiaca L.</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>11</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Asparagales</td>\n",
+              "      <td>Orchidaceae</td>\n",
+              "      <td>Maxillaria</td>\n",
+              "      <td>Maxillaria umbratilis</td>\n",
+              "      <td>Maxillaria umbratilis L.O.Williams</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>167</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Asterales</td>\n",
+              "      <td>Asteraceae</td>\n",
+              "      <td>Sphagneticola</td>\n",
+              "      <td>Sphagneticola trilobata</td>\n",
+              "      <td>Sphagneticola trilobata (L.) Pruski</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>220</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Alismatales</td>\n",
+              "      <td>Araceae</td>\n",
+              "      <td>Caladium</td>\n",
+              "      <td>Caladium bicolor</td>\n",
+              "      <td>Caladium bicolor (Aiton) Vent.</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>29</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Lamiales</td>\n",
+              "      <td>Gesneriaceae</td>\n",
+              "      <td>Drymonia</td>\n",
+              "      <td>Drymonia coriacea</td>\n",
+              "      <td>Drymonia coriacea (Oerst.) Wiehler</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "     kingdom  ...                                  scientificName\n",
+              "189  Plantae  ...                          Senna alata (L.) Roxb.\n",
+              "123  Plantae  ...                          Momordica charantia L.\n",
+              "185  Plantae  ...                               Cocos nucifera L.\n",
+              "213  Plantae  ...             Sphagneticola trilobata (L.) Pruski\n",
+              "106  Plantae  ...                     Heliconia latispatha Benth.\n",
+              "127  Plantae  ...                    Aphelandra scabra (Vahl) Sm.\n",
+              "176  Plantae  ...  Peperomia pittieri C.DC. ex T.Durand & Pittier\n",
+              "73   Plantae  ...                        Vismia macrophylla Kunth\n",
+              "275  Plantae  ...                        Clavija biborrana Oerst.\n",
+              "242  Plantae  ...                            Hamelia patens Jacq.\n",
+              "266  Plantae  ...                      Ipomoea cairica (L.) Sweet\n",
+              "147  Plantae  ...                      Heliconia psittacorum L.f.\n",
+              "299  Plantae  ...                Caesalpinia pulcherrima (L.) Sw.\n",
+              "58   Plantae  ...            Asystasia gangetica subsp. gangetica\n",
+              "122  Plantae  ...                       Xiphidium caeruleum Aubl.\n",
+              "78   Plantae  ...                             Musa paradisiaca L.\n",
+              "11   Plantae  ...              Maxillaria umbratilis L.O.Williams\n",
+              "167  Plantae  ...             Sphagneticola trilobata (L.) Pruski\n",
+              "220  Plantae  ...                  Caladium bicolor (Aiton) Vent.\n",
+              "29   Plantae  ...              Drymonia coriacea (Oerst.) Wiehler\n",
+              "\n",
+              "[20 rows x 7 columns]"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 145
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "Q5MOHg1RmPzs"
+      },
+      "source": [
+        "## Consulta a la API de Encyclopedia of Life (EOL)"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "Sv1yabI7Nc4q"
+      },
+      "source": [
+        "Con el fin de obtener una cantidad de 3 fotos de cada una especie de la muestra, se realiza una consulta a la API de EOL desde la que se obtiene una referencia a una subpagina de la especie correspondiente. En dicha subpagina se consulta de forma automatizada la seccion de media en la que se encuentran las imagenes por especie, por lo que para una descarga de las misma se emplea una tecnica de web scrapping. Al final se obtiene un dataframe que contiene el nombre de especie y una URL de las fotografias asociadas a esta. "
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "ce8I1Fk4dVUQ"
+      },
+      "source": [
+        "def eol (data):\n",
+        "  L3=data.groupby(['species'])['species'].head(1).reset_index(drop=True)\n",
+        "  url_eol = \"http://eol.org/api/search/1.0.json?\"\n",
+        "  df = pd.DataFrame(columns=('specie', 'url'))\n",
+        "\n",
+        "  species_count=0\n",
+        "  rows_list = []\n",
+        "  for i in L3:\n",
+        "      #EOL DATA\n",
+        "      parameters = {\"q\": i}\n",
+        "      q_eol = requests.request(method=\"get\", url=url_eol, params=parameters)\n",
+        "      j_eol = json.loads(q_eol.text)\n",
+        "      \n",
+        "      #Se filtran los datos que tengan mas de 3 resultados \n",
+        "      jd_eol = json_normalize(j_eol['results'])\n",
+        "      rows_temp = []  \n",
+        "      #Se recorren los links de los resultados y se evalua si el link devuelve informacion\n",
+        "      for link in j_eol['results']:\n",
+        "          r = requests.get(link['link']+'/media')\n",
+        "          html = r.text\n",
+        "          soup = BeautifulSoup(html, 'lxml')\n",
+        "          links = soup.find_all('div', {'class': 'js-grid-modal-toggle uk-card-media-top uk-inline-clip uk-transition-toggle'})\n",
+        "          \n",
+        "          for y in links:\n",
+        "              dict1 = {}\n",
+        "              dict1.update({'Specie':i, 'Url':y.find('img')['src']})\n",
+        "              \n",
+        "              rows_temp.append(dict1) \n",
+        "              if(len(rows_temp) == 3):\n",
+        "                  species_count+=1\n",
+        "                  rows_list += rows_temp\n",
+        "                  break\n",
+        "          if(len(rows_temp) == 3):\n",
+        "              break\n",
+        "      #Se detiene el ciclo cuando ya se hayan obtenido 3 imagenes de 20 especies\n",
+        "      if (species_count == 21):\n",
+        "          break\n",
+        "\n",
+        "  df_eol = pd.DataFrame(rows_list)\n",
+        "  return df_eol"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "vCQsQgdq1ax5"
+      },
+      "source": [
+        "df_eol0 = eol(L2)"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 202
+        },
+        "id": "xREzj4Kmz3cm",
+        "outputId": "f1e75f5d-5dad-48fb-feb4-ac27b3cde013"
+      },
+      "source": [
+        "df_eol0.head()"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>Specie</th>\n",
+              "      <th>Url</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>Senna alata</td>\n",
+              "      <td>https://content.eol.org/data/media/7e/e2/22/54...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>Senna alata</td>\n",
+              "      <td>https://content.eol.org/data/media/7e/e2/27/54...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>Senna alata</td>\n",
+              "      <td>https://content.eol.org/data/media/7e/e3/ec/54...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>Momordica charantia</td>\n",
+              "      <td>https://content.eol.org/data/media/80/d1/b1/54...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>Momordica charantia</td>\n",
+              "      <td>https://content.eol.org/data/media/80/d1/b4/54...</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "                Specie                                                Url\n",
+              "0          Senna alata  https://content.eol.org/data/media/7e/e2/22/54...\n",
+              "1          Senna alata  https://content.eol.org/data/media/7e/e2/27/54...\n",
+              "2          Senna alata  https://content.eol.org/data/media/7e/e3/ec/54...\n",
+              "3  Momordica charantia  https://content.eol.org/data/media/80/d1/b1/54...\n",
+              "4  Momordica charantia  https://content.eol.org/data/media/80/d1/b4/54..."
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 148
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "IBoA5oaISSVI",
+        "outputId": "cd165b39-495f-4f7a-d788-e1f830be87a3"
+      },
+      "source": [
+        "print('La cantidad de especies sin foto son: ',20-((df_eol0.Specie.value_counts().sum())/3))"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "La cantidad de especies sin foto son:  3.0\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 141
+        },
+        "id": "ys0G9B0nSIqu",
+        "outputId": "4dfea22e-43e8-4f28-fc74-f60d2fcdfb7f"
+      },
+      "source": [
+        "L2_1 = L.sample(3, replace=True)\n",
+        "L2_1"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>kingdom</th>\n",
+              "      <th>phylum</th>\n",
+              "      <th>order</th>\n",
+              "      <th>family</th>\n",
+              "      <th>genus</th>\n",
+              "      <th>species</th>\n",
+              "      <th>scientificName</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>287</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Gentianales</td>\n",
+              "      <td>Apocynaceae</td>\n",
+              "      <td>Mandevilla</td>\n",
+              "      <td>Mandevilla hirsuta</td>\n",
+              "      <td>Mandevilla hirsuta (A.Rich.) Malme</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>12</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Myrtales</td>\n",
+              "      <td>Combretaceae</td>\n",
+              "      <td>Terminalia</td>\n",
+              "      <td>Terminalia catappa</td>\n",
+              "      <td>Terminalia catappa L.</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>15</th>\n",
+              "      <td>Plantae</td>\n",
+              "      <td>Tracheophyta</td>\n",
+              "      <td>Malpighiales</td>\n",
+              "      <td>Clusiaceae</td>\n",
+              "      <td>Symphonia</td>\n",
+              "      <td>Symphonia globulifera</td>\n",
+              "      <td>Symphonia globulifera L.fil.</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "     kingdom  ...                      scientificName\n",
+              "287  Plantae  ...  Mandevilla hirsuta (A.Rich.) Malme\n",
+              "12   Plantae  ...               Terminalia catappa L.\n",
+              "15   Plantae  ...        Symphonia globulifera L.fil.\n",
+              "\n",
+              "[3 rows x 7 columns]"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 150
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "ApulH6DAZWnm"
+      },
+      "source": [
+        "Checkeo de especies entre listas"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "d8CPOkHxVgUD",
+        "outputId": "32e1387c-b879-4cf8-87c2-9b139664e573"
+      },
+      "source": [
+        "spec1 = list(df_eol0['Specie'].unique())\n",
+        "spec2 = list(L2_1.species.unique())\n",
+        "\n",
+        "check =  any(item in spec2 for item in spec1)\n",
+        " \n",
+        "if check is True:\n",
+        "    print(\"La lista si contiene algunas especies de la primera lista\")   \n",
+        "else :\n",
+        "    print(\"Las listas no contiene especies iguales.\")"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "Las listas no contiene especies iguales.\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "F1SDq4o1dpLO"
+      },
+      "source": [
+        "### Se realiza la busqueda de fotos en eol de las especies faltantes con este requerimiento"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "uGVRMz5G0aSs"
+      },
+      "source": [
+        "df_eol1 = eol(L2_1)"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 325
+        },
+        "id": "G1PfpI-T2WpQ",
+        "outputId": "a417bae9-ea5c-4243-e3c5-33dfaa69cd13"
+      },
+      "source": [
+        "df_eol1"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>Specie</th>\n",
+              "      <th>Url</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>Mandevilla hirsuta</td>\n",
+              "      <td>https://content.eol.org/data/media/7e/7a/26/54...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>Mandevilla hirsuta</td>\n",
+              "      <td>https://content.eol.org/data/media/7e/7a/27/54...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>Mandevilla hirsuta</td>\n",
+              "      <td>https://content.eol.org/data/media/7e/7a/2d/54...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>Terminalia catappa</td>\n",
+              "      <td>https://content.eol.org/data/media/7f/e9/a6/54...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>Terminalia catappa</td>\n",
+              "      <td>https://content.eol.org/data/media/7e/ba/1e/54...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>5</th>\n",
+              "      <td>Terminalia catappa</td>\n",
+              "      <td>https://content.eol.org/data/media/7f/35/19/54...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>6</th>\n",
+              "      <td>Symphonia globulifera</td>\n",
+              "      <td>https://content.eol.org/data/media/7e/65/90/54...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>7</th>\n",
+              "      <td>Symphonia globulifera</td>\n",
+              "      <td>https://content.eol.org/data/media/7e/65/91/54...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>8</th>\n",
+              "      <td>Symphonia globulifera</td>\n",
+              "      <td>https://content.eol.org/data/media/7e/65/92/54...</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "                  Specie                                                Url\n",
+              "0     Mandevilla hirsuta  https://content.eol.org/data/media/7e/7a/26/54...\n",
+              "1     Mandevilla hirsuta  https://content.eol.org/data/media/7e/7a/27/54...\n",
+              "2     Mandevilla hirsuta  https://content.eol.org/data/media/7e/7a/2d/54...\n",
+              "3     Terminalia catappa  https://content.eol.org/data/media/7f/e9/a6/54...\n",
+              "4     Terminalia catappa  https://content.eol.org/data/media/7e/ba/1e/54...\n",
+              "5     Terminalia catappa  https://content.eol.org/data/media/7f/35/19/54...\n",
+              "6  Symphonia globulifera  https://content.eol.org/data/media/7e/65/90/54...\n",
+              "7  Symphonia globulifera  https://content.eol.org/data/media/7e/65/91/54...\n",
+              "8  Symphonia globulifera  https://content.eol.org/data/media/7e/65/92/54..."
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 153
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "tQBGDtnA0nPW"
+      },
+      "source": [
+        "Se unen las 2 tablas resultado de la consulta a la api eol"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "z6_MZjz20ywE",
+        "outputId": "9696fdb9-d7f1-4fb4-ef05-db0ba51556bd"
+      },
+      "source": [
+        "df_eol_f = df_eol0.append(df_eol1)\n",
+        "print('La cantidad de fotos total por especies es: ', df_eol_f['Url'].value_counts().sum())"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "La cantidad de fotos total por especies es:  60\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "FJMEpl_h3jP8"
+      },
+      "source": [
+        "## Descarga de imagenes"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "4y9TnVPAnK8P",
+        "outputId": "15a21534-c9a7-462c-f847-50edf5e89b00"
+      },
+      "source": [
+        "from google.colab import drive\n",
+        "drive.mount('/content/drive')"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "Drive already mounted at /content/drive; to attempt to forcibly remount, call drive.mount(\"/content/drive\", force_remount=True).\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "FHiTLTE1mPzr",
+        "outputId": "573eb0fc-dbf5-44cb-f65a-f15d9f50444e"
+      },
+      "source": [
+        "count = 0\n",
+        "for name, url in zip(df_eol_f['Specie'], df_eol_f['Url']):\n",
+        "    n = os.path.exists(\"/content/drive/MyDrive/imagenes/\"+name+'.jpg')\n",
+        "    if n:\n",
+        "        count +=1\n",
+        "        if (count < 3):\n",
+        "            urllib.request.urlretrieve(str(url), \"/content/drive/MyDrive/imagenes/\"+name+'_'+str(count)+\".jpg\")\n",
+        "    else:\n",
+        "        count = 0\n",
+        "        urllib.request.urlretrieve(str(url), \"/content/drive/MyDrive/imagenes/\"+name+\".jpg\")\n",
+        "\n",
+        "file_list = glob.glob(os.path.join(os.getcwd(), \"/content/drive/MyDrive/imagenes/\", \"*.jpg\"))\n",
+        "print(\"La cantidad de imagenes descargadas son: \",len(file_list))"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "La cantidad de imagenes descargadas son:  60\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "6jzTuyyB77t0"
+      },
+      "source": [
+        "Link para visualizar las fotografias: [fotos de especies](https://drive.google.com/drive/folders/15Dz600K7zcRMZZQjNh59W8r4UVhimpBu?usp=sharing)"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "aQAxdZWomPzu"
+      },
+      "source": [
+        "## Prueba del identificador de especies de Plantnet"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "_S8um11ymPzz"
+      },
+      "source": [
+        "Para la evaluación se emplean las fotografías obtenidas en el proceso anterior.<br>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "X9Qfr3ekmPzw"
+      },
+      "source": [
+        "A continuación, una lista de las librerías utilizadas en esta seccion:"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "re6g1zPemPzx"
+      },
+      "source": [
+        "#URL de descarga del webdriver: https://chromedriver.chromium.org/\n",
+        "\n",
+        "#Se cargan las librerias respectivas\n",
+        "from selenium import webdriver\n",
+        "from selenium.webdriver.support.ui import WebDriverWait\n",
+        "from selenium.webdriver.support import expected_conditions as EC\n",
+        "from selenium.webdriver.common.by import By"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "Q0UMw4hOmPz4"
+      },
+      "source": [
+        "En las siguientes líneas de código se realizan una serie de procesos automatizados que corresponden con la técnica de webscrapping los cuales corresponden con: ejecución del webdriver en cuyo caso abre el GoogleChrome, posteriormente se busca el sitio web de plantnet que corresponde con la app de identificación y, en este sitio se utiliza el boton de subida de imagenes para su respectiva identificación, con esto se obtiene un resultado del cual únicamente se copia la información de la primera fila con el que se crea un dataframe que incluye como columnas el nombre del archivo evaluado, la nombre científico, la familia, el nombre común y el porcentaje de precisión que se obtuvo con la identificación que realiza la app.<br>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "lV89zV2eX5vd"
+      },
+      "source": [
+        "# install chromium, its driver, and selenium\n",
+        "'''\n",
+        "!apt update\n",
+        "!apt install chromium-chromedriver\n",
+        "!pip install selenium\n",
+        "'''\n",
+        "# set options to be headless, ..\n",
+        "from selenium import webdriver\n",
+        "from selenium.webdriver.support.ui import WebDriverWait\n",
+        "from selenium.webdriver.support import expected_conditions as EC\n",
+        "from selenium.webdriver.common.by import By\n",
+        "from selenium.common.exceptions import TimeoutException\n",
+        "options = webdriver.ChromeOptions()\n",
+        "options.add_argument('--headless')\n",
+        "options.add_argument('--no-sandbox')\n",
+        "options.add_argument('--disable-dev-shm-usage')\n",
+        "# open it, go to a website, and get results\n",
+        "wd = webdriver.Chrome(options=options)"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "GjpdbPcYmPz6"
+      },
+      "source": [
+        "#Se especifica la pagina web\n",
+        "wd.get(\"https://identify.plantnet.org/\")\n",
+        "\n",
+        "#Identificar el elemento donde cargar la foto\n",
+        "s = wd.find_element_by_xpath(\"//input[@type='file']\")\n",
+        "\n",
+        "#Se crea un dataset con los datos obtenidos\n",
+        "fname = list()\n",
+        "nsc = list()\n",
+        "fam = list()\n",
+        "ncom = list()\n",
+        "prec = list()\n",
+        "\n",
+        "for i in range(0, len(file_list)):\n",
+        "    s.send_keys(str(file_list[i]))\n",
+        "    fname.append(os.path.basename(file_list[i]))\n",
+        "    try:\n",
+        "      text_plant = WebDriverWait(wd, 20)\\\n",
+        "      .until(EC.visibility_of_element_located((By.XPATH, '/html/body/div[2]/div[1]/div/div/div/div[1]/div[1]/div')))\n",
+        "    except TimeoutException:\n",
+        "        ['ND', 'ND', 'ND', '0%']\n",
+        "        continue\n",
+        "    print(text_plant)\n",
+        "    text_plant = text_plant.text\n",
+        "    text_plant.append(nd)\n",
+        "    text_plant = text_plant.split('\\n')\n",
+        "    nsc.append(text_plant[0])\n",
+        "    fam.append(text_plant[1])\n",
+        "    if(len(text_plant) == 4):\n",
+        "        ncom.append(text_plant[2])\n",
+        "    else:\n",
+        "        ncom.append(\"ND\")\n",
+        "    prec.append(text_plant[-1])\n",
+        "\n",
+        "wd.quit()"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 49
+        },
+        "id": "xVJEXvReoAL3",
+        "outputId": "c9674765-8383-4cb9-a41b-d29a82701355"
+      },
+      "source": [
+        "df = pd.DataFrame({'Foto': fname,'Nombre_cientifico': nsc, 'Familia': fam, 'Nombre_comun': ncom, 'Precision':prec})\n",
+        "df"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>Foto</th>\n",
+              "      <th>Nombre_cientifico</th>\n",
+              "      <th>Familia</th>\n",
+              "      <th>Nombre_comun</th>\n",
+              "      <th>Precision</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "Empty DataFrame\n",
+              "Columns: [Foto, Nombre_cientifico, Familia, Nombre_comun, Precision]\n",
+              "Index: []"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 169
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "rJD3EdxJSdbT"
+      },
+      "source": [
+        "df = pd.DataFrame({'Foto': fname,'Nombre_cientifico': nsc, 'Familia': fam, 'Nombre_comun': ncom, 'Precision':prec})\n",
+        "df['Precision'] = [float(v.replace('%','').strip()) for v in df.Precision]\n",
+        "df['Ratio'] = df.apply(lambda x: fuzz.partial_ratio(x['Foto'], x['Nombre_comun']), axis=1)\n",
+        "df['Similitud'] = np.where(df['Ratio'] == 100, 1, 0)"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "HUIwAwkx9nXc"
+      },
+      "source": [
+        "df"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "djqEGKYzmPz7"
+      },
+      "source": [
+        "A partir del procedimiento anterior se construye la siguiente tabla:<br>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "Lck7KPvUmPz8",
+        "outputId": "6aaa4030-ca48-4cb6-80fa-54f5e1de3ea2"
+      },
+      "source": [
+        "df"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>Foto</th>\n",
+              "      <th>Nombre_cientifico</th>\n",
+              "      <th>Familia</th>\n",
+              "      <th>Nombre_comun</th>\n",
+              "      <th>Precision</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <td>0</td>\n",
+              "      <td>a.jpg</td>\n",
+              "      <td>Cattleya schilleriana Rchb.f.</td>\n",
+              "      <td>Orchidaceae</td>\n",
+              "      <td>ND</td>\n",
+              "      <td>54.25</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <td>1</td>\n",
+              "      <td>b.jpg</td>\n",
+              "      <td>Opuntia monacantha (Willd.) Haw.</td>\n",
+              "      <td>Cactaceae</td>\n",
+              "      <td>Cochineal prickly-pear</td>\n",
+              "      <td>53.78</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <td>2</td>\n",
+              "      <td>c.jpg</td>\n",
+              "      <td>Tecoma stans (L.) Juss. ex Kunth</td>\n",
+              "      <td>Bignoniaceae</td>\n",
+              "      <td>Trumpet-flower</td>\n",
+              "      <td>7.64</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <td>3</td>\n",
+              "      <td>d.jpg</td>\n",
+              "      <td>Thuja occidentalis L.</td>\n",
+              "      <td>Cupressaceae</td>\n",
+              "      <td>Northern white-cedar</td>\n",
+              "      <td>37.06</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <td>4</td>\n",
+              "      <td>e.jpg</td>\n",
+              "      <td>Coffea arabica L.</td>\n",
+              "      <td>Rubiaceae</td>\n",
+              "      <td>Arabian coffee</td>\n",
+              "      <td>32.81</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <td>5</td>\n",
+              "      <td>f.jpg</td>\n",
+              "      <td>Tulbaghia violacea Harv.</td>\n",
+              "      <td>Amaryllidaceae</td>\n",
+              "      <td>ND</td>\n",
+              "      <td>46.45</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <td>6</td>\n",
+              "      <td>g.jpg</td>\n",
+              "      <td>Lycopodium clavatum L.</td>\n",
+              "      <td>Lycopodiaceae</td>\n",
+              "      <td>Ground-pine</td>\n",
+              "      <td>70.32</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <td>7</td>\n",
+              "      <td>h.jpg</td>\n",
+              "      <td>Fuchsia triphylla L.</td>\n",
+              "      <td>Onagraceae</td>\n",
+              "      <td>ND</td>\n",
+              "      <td>22.45</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <td>8</td>\n",
+              "      <td>i.jpg</td>\n",
+              "      <td>Sarracenia purpurea L.</td>\n",
+              "      <td>Sarraceniaceae</td>\n",
+              "      <td>Common pitcherplant</td>\n",
+              "      <td>21.46</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <td>9</td>\n",
+              "      <td>j.jpg</td>\n",
+              "      <td>Eryngium lemmonii J.M. Coult. &amp; Rose</td>\n",
+              "      <td>Apiaceae</td>\n",
+              "      <td>Chiricahua Mountain eryngo</td>\n",
+              "      <td>56.90</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <td>10</td>\n",
+              "      <td>k.jpg</td>\n",
+              "      <td>Camellia japonica L.</td>\n",
+              "      <td>Theaceae</td>\n",
+              "      <td>Camellia</td>\n",
+              "      <td>63.58</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <td>11</td>\n",
+              "      <td>l.jpg</td>\n",
+              "      <td>Bergenia crassifolia (L.) Fritsch</td>\n",
+              "      <td>Saxifragaceae</td>\n",
+              "      <td>Siberian-tea</td>\n",
+              "      <td>79.10</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <td>12</td>\n",
+              "      <td>m.jpg</td>\n",
+              "      <td>Leucaena leucocephala (Lam.) de Wit</td>\n",
+              "      <td>Leguminosae</td>\n",
+              "      <td>Coffeebush</td>\n",
+              "      <td>2.19</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "     Foto                     Nombre_cientifico         Familia  \\\n",
+              "0   a.jpg         Cattleya schilleriana Rchb.f.     Orchidaceae   \n",
+              "1   b.jpg      Opuntia monacantha (Willd.) Haw.       Cactaceae   \n",
+              "2   c.jpg      Tecoma stans (L.) Juss. ex Kunth    Bignoniaceae   \n",
+              "3   d.jpg                 Thuja occidentalis L.    Cupressaceae   \n",
+              "4   e.jpg                     Coffea arabica L.       Rubiaceae   \n",
+              "5   f.jpg              Tulbaghia violacea Harv.  Amaryllidaceae   \n",
+              "6   g.jpg                Lycopodium clavatum L.   Lycopodiaceae   \n",
+              "7   h.jpg                  Fuchsia triphylla L.      Onagraceae   \n",
+              "8   i.jpg                Sarracenia purpurea L.  Sarraceniaceae   \n",
+              "9   j.jpg  Eryngium lemmonii J.M. Coult. & Rose        Apiaceae   \n",
+              "10  k.jpg                  Camellia japonica L.        Theaceae   \n",
+              "11  l.jpg     Bergenia crassifolia (L.) Fritsch   Saxifragaceae   \n",
+              "12  m.jpg   Leucaena leucocephala (Lam.) de Wit     Leguminosae   \n",
+              "\n",
+              "                  Nombre_comun  Precision  \n",
+              "0                           ND      54.25  \n",
+              "1       Cochineal prickly-pear      53.78  \n",
+              "2               Trumpet-flower       7.64  \n",
+              "3         Northern white-cedar      37.06  \n",
+              "4               Arabian coffee      32.81  \n",
+              "5                           ND      46.45  \n",
+              "6                  Ground-pine      70.32  \n",
+              "7                           ND      22.45  \n",
+              "8          Common pitcherplant      21.46  \n",
+              "9   Chiricahua Mountain eryngo      56.90  \n",
+              "10                    Camellia      63.58  \n",
+              "11                Siberian-tea      79.10  \n",
+              "12                  Coffeebush       2.19  "
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 105
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "MikCsiwlmPz9"
+      },
+      "source": [
+        "Por último, con el fin de evaluar en términos globales la precisión que se obtuvo con la puesta a prueba de esta app, se aplica una consulta a la columna 'Precision' respecto de sus estadísticas descriptivas.<br>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "-BK8MGbjmPz-",
+        "outputId": "62ac5bcd-6c87-4ce2-e45e-afe5275a027b"
+      },
+      "source": [
+        "df['Precision'].describe()"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "count    13.000000\n",
+              "mean     42.153077\n",
+              "std      23.897118\n",
+              "min       2.190000\n",
+              "25%      22.450000\n",
+              "50%      46.450000\n",
+              "75%      56.900000\n",
+              "max      79.100000\n",
+              "Name: Precision, dtype: float64"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 106
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "svIprU7lmPz_"
+      },
+      "source": [
+        "De estas estadísticas se puede observar que se evaluaron 60 fotografias de 20 especies diferentes en las cuales se obtuvo una precision promedio de _%, siendo _% la precision mínima  y _% la máxima, tal y como es es posible apreciar en la tabla de resultados.<br>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "uOCnvrFZmPz_"
+      },
+      "source": [
+        "## Fuentes: \n",
+        "\n",
+        "- https://api.gbif.org/v1/occurrence/\n",
+        "- http://eol.org/api/\n",
+        "- https://identify.plantnet.org/\n",
+        "- https://selenium-python.readthedocs.io/"
+      ]
+    }
+  ]
+}
